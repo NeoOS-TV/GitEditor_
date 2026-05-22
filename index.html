@@ -7,20 +7,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #1f2937; }
-        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
-        .folder-content { margin-left: 14px; border-left: 1px solid #374151; padding-left: 6px; }
-        
-        .material-symbols-outlined {
-            font-size: 18px;
-            display: inline-block;
-            vertical-align: middle;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-950 text-gray-100 font-sans h-screen flex flex-col overflow-hidden select-none">
+<body class="bg-gray-950 text-gray-100 font-sans h-screen flex flex-col overflow-hidden select-none version-adaptive">
 
     <div id="infoBanner" class="bg-amber-600 text-gray-100 text-xs font-medium px-4 py-2 flex items-center justify-between shadow-md z-50 shrink-0 flex-wrap gap-2">
         <div class="flex items-center gap-1.5 flex-wrap">
@@ -63,10 +52,10 @@
         </div>
     </div>
 
-    <header class="bg-gray-900 p-4 border-b border-gray-800 flex flex-col md:flex-row items-center justify-between gap-3 shadow-md shrink-0 z-20">
-        <div class="flex items-center justify-between w-full md:w-auto">
+    <header class="bg-gray-900 p-4 border-b border-gray-800 flex flex-col lg:flex-row items-center justify-between gap-3 shadow-md shrink-0 z-20">
+        <div class="flex items-center justify-between w-full lg:w-auto">
             <div class="flex items-center gap-3">
-                <button id="menuBtn" class="md:hidden p-2 bg-gray-800 rounded-md hover:bg-gray-700 active:scale-95 transition cursor-pointer flex items-center justify-center">
+                <button id="menuBtn" class="p-2 bg-gray-800 rounded-md hover:bg-gray-700 active:scale-95 transition cursor-pointer flex items-center justify-center">
                     <span class="material-symbols-outlined text-white">menu</span>
                 </button>
                 <span class="material-symbols-outlined text-indigo-400 text-2xl hidden xs:block">terminal</span>
@@ -74,10 +63,17 @@
                     GitEditor_
                 </h1>
             </div>
-            <span id="repoNameBadge" class="text-[10px] bg-gray-800 text-indigo-400 px-2 py-1 rounded-full lowercase max-w-[125px] truncate md:hidden">none</span>
+            
+            <div class="flex items-center gap-2">
+                <button id="viewModeToggle" class="text-[11px] bg-gray-800 border border-gray-700 text-gray-300 px-2.5 py-1 rounded hover:bg-gray-700 active:scale-95 transition cursor-pointer flex items-center gap-1" title="Switch between mobile drawer and rigid desktop split">
+                    <span class="material-symbols-outlined !text-xs" id="viewModeIcon">smartphone</span>
+                    <span id="viewModeText">Mobile Mode</span>
+                </button>
+                <span id="repoNameBadge" class="text-[10px] bg-gray-800 text-indigo-400 px-2 py-1 rounded-full lowercase max-w-[100px] truncate lg:hidden">none</span>
+            </div>
         </div>
         
-        <div class="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto md:flex-1 md:max-w-3xl md:justify-end">
+        <div class="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto lg:flex-1 lg:max-w-4xl lg:justify-end">
             <input type="password" id="tokenInput" placeholder="GitHub Token (Optional)"
                 class="bg-gray-800 text-sm text-gray-300 px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:border-purple-500 w-full sm:w-44 transition shadow-inner">
             
@@ -94,13 +90,13 @@
         </div>
     </header>
 
-    <div class="flex flex-1 overflow-hidden relative">
-        <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-30 opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
+    <div class="flex flex-1 overflow-hidden relative" id="workspaceContainer">
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-30 opacity-0 pointer-events-none transition-opacity duration-300"></div>
 
-        <aside id="sidebar" class="fixed inset-y-0 left-0 w-72 bg-gray-900 border-r border-gray-800 flex flex-col z-40 -translate-x-full transition-transform duration-300 ease-in-out md:static md:translate-x-0 shrink-0">
+        <aside id="sidebar" class="fixed inset-y-0 left-0 w-72 bg-gray-900 border-r border-gray-800 flex flex-col z-40 -translate-x-full transition-transform duration-300 ease-in-out">
             <div class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-850 flex justify-between items-center shrink-0">
                 <span>Navigation</span>
-                <button id="closeMenuBtn" class="md:hidden text-gray-400 hover:text-white p-1 flex items-center justify-center">
+                <button id="closeMenuBtn" class="text-gray-400 hover:text-white p-1 flex items-center justify-center cursor-pointer">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
@@ -134,311 +130,6 @@
         </main>
     </div>
 
-    <script>
-        let editor;
-        let currentRepo = "";
-        let currentFilePath = "";
-        let currentFileSha = ""; 
-        
-        // Load bookmarks and convert legacy string items to objects safely
-        let rawSaved = JSON.parse(localStorage.getItem('gitEditor_savedRepos') || '[]');
-        let savedRepos = rawSaved.map(item => typeof item === 'string' ? { path: item, token: '' } : item);
-
-        const menuBtn = document.getElementById('menuBtn');
-        const closeMenuBtn = document.getElementById('closeMenuBtn');
-        const sidebar = document.getElementById('sidebar');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
-        const savedReposList = document.getElementById('savedReposList');
-        const repoInput = document.getElementById('repoInput');
-        const tokenInput = document.getElementById('tokenInput');
-        const saveFileBtn = document.getElementById('saveFileBtn');
-
-        function openSidebar() {
-            sidebar.classList.remove('-translate-x-full');
-            sidebarOverlay.classList.remove('opacity-0', 'pointer-events-none');
-        }
-        function closeSidebar() {
-            sidebar.classList.add('-translate-x-full');
-            sidebarOverlay.classList.add('opacity-0', 'pointer-events-none');
-        }
-        menuBtn.addEventListener('click', openSidebar);
-        closeMenuBtn.addEventListener('click', closeSidebar);
-        sidebarOverlay.addEventListener('click', closeSidebar);
-
-        function renderSavedRepos() {
-            savedReposList.innerHTML = '';
-            if (savedRepos.length === 0) {
-                savedReposList.innerHTML = '<p class="text-gray-600 text-xs italic px-2">No bookmarks saved.</p>';
-                return;
-            }
-
-            savedRepos.forEach(item => {
-                const el = document.createElement('div');
-                el.className = 'flex items-center justify-between px-2 py-1 hover:bg-gray-800 rounded group transition';
-                
-                const repoLink = document.createElement('span');
-                repoLink.className = 'text-xs text-indigo-300 cursor-pointer truncate flex-1 hover:text-indigo-200 flex items-center gap-1.5';
-                repoLink.innerHTML = `<span class="material-symbols-outlined text-yellow-500 !text-sm">bookmark</span> <span class="truncate">${item.path}</span>`;
-                
-                // Clicking loads repo AND fills the coupled token
-                repoLink.onclick = () => {
-                    repoInput.value = item.path;
-                    tokenInput.value = item.token || ''; 
-                    fetchRepoStructure();
-                };
-
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition px-2 flex items-center justify-center';
-                deleteBtn.innerHTML = '<span class="material-symbols-outlined !text-sm">close</span>';
-                deleteBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    savedRepos = savedRepos.filter(r => r.path !== item.path);
-                    localStorage.setItem('gitEditor_savedRepos', JSON.stringify(savedRepos));
-                    renderSavedRepos();
-                };
-
-                el.appendChild(repoLink);
-                el.appendChild(deleteBtn);
-                savedReposList.appendChild(el);
-            });
-        }
-
-        // Bookmark listener saves both the Repo string and Token string linked together
-        document.getElementById('saveRepoBtn').addEventListener('click', () => {
-            const repo = repoInput.value.trim();
-            const token = tokenInput.value.trim();
-            
-            if (!repo || !repo.includes('/')) return alert('Please enter a valid repo (username/repo).');
-            
-            const existingIndex = savedRepos.findIndex(r => r.path === repo);
-            if (existingIndex > -1) {
-                // If it already exists, update the token associated with it
-                savedRepos[existingIndex].token = token;
-            } else {
-                // Otherwise push a new relational object
-                savedRepos.push({ path: repo, token: token });
-            }
-            
-            localStorage.setItem('gitEditor_savedRepos', JSON.stringify(savedRepos));
-            renderSavedRepos();
-            openSidebar();
-        });
-
-        renderSavedRepos();
-
-        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' }});
-        require(['vs/editor/editor.main'], function() {
-            editor = monaco.editor.create(document.getElementById('editorContainer'), {
-                value: "// Auto-save is completely disabled.\n// Changes stay inside your browser memory until you manual save.\n",
-                language: 'javascript',
-                theme: 'vs-dark',
-                automaticLayout: true,
-                fontSize: 13,
-                fontFamily: "'Fira Code', Consolas, Monaco, monospace",
-                minimap: { enabled: false },
-                wordWrap: "on",
-                padding: { top: 12 },
-                renderLineHighlight: 'all',
-                cursorBlinking: 'smooth'
-            });
-        });
-
-        document.getElementById('loadBtn').addEventListener('click', fetchRepoStructure);
-        repoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchRepoStructure(); });
-
-        async function githubFetch(url, options = {}) {
-            const token = tokenInput.value.trim();
-            options.headers = options.headers || {};
-            if (token) options.headers['Authorization'] = `token ${token}`;
-            
-            const response = await fetch(url, options);
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.message || `Request failed with status ${response.status}`);
-            }
-            return response.json();
-        }
-
-        async function fetchRepoStructure() {
-            const repoPath = repoInput.value.trim();
-            const treeContainer = document.getElementById('fileTree');
-            const badge = document.getElementById('repoNameBadge');
-            
-            if (!repoPath || !repoPath.includes('/')) return alert('Please use "username/repository" format.');
-            
-            currentRepo = repoPath;
-            treeContainer.innerHTML = '<div class="text-center pt-8"><span class="inline-block animate-spin text-indigo-400"><span class="material-symbols-outlined">sync</span></span><p class="text-indigo-400 text-xs mt-2">Loading tree...</p></div>';
-            badge.textContent = repoPath.split('/')[1];
-            openSidebar();
-
-            try {
-                const repoData = await githubFetch(`https://api.github.com/repos/${repoPath}`);
-                const treeData = await githubFetch(`https://api.github.com/repos/${repoPath}/git/trees/${repoData.default_branch}?recursive=1`);
-                
-                const root = {};
-                treeData.tree.forEach(item => {
-                    const parts = item.path.split('/');
-                    let current = root;
-                    parts.forEach((part, index) => {
-                        if (!current[part]) {
-                            current[part] = index === parts.length - 1 ? { _type: item.type, _url: item.url, _path: item.path, _sha: item.sha } : {};
-                        }
-                        current = current[part];
-                    });
-                });
-
-                treeContainer.innerHTML = '';
-                buildHtmlTree(root, treeContainer);
-            } catch (error) {
-                treeContainer.innerHTML = `<div class="bg-red-950 border border-red-900 p-3 text-red-400 text-xs">${error.message}</div>`;
-                badge.textContent = "error";
-            }
-        }
-
-        function buildHtmlTree(node, container, currentPath = "") {
-            const keys = Object.keys(node).sort((a, b) => {
-                const aIsDir = node[a]._type !== 'blob';
-                const bIsDir = node[b]._type !== 'blob';
-                return (aIsDir && !bIsDir) ? -1 : (!aIsDir && bIsDir) ? 1 : a.localeCompare(b);
-            });
-
-            keys.forEach(key => {
-                if (key === '_type' || key === '_url' || key === '_path' || key === '_sha') return;
-                const item = node[key];
-                const itemEl = document.createElement('div');
-                const fullPath = currentPath ? `${currentPath}/${key}` : key;
-
-                if (item._type === 'blob') {
-                    itemEl.className = 'flex items-center gap-2 px-3 py-1.5 hover:bg-gray-800 rounded text-gray-400 hover:text-white cursor-pointer transition text-xs truncate';
-                    itemEl.innerHTML = `<span class="material-symbols-outlined text-indigo-400 !text-[16px]">description</span> <span class="truncate">${key}</span>`;
-                    itemEl.addEventListener('click', () => {
-                        currentFilePath = item._path;
-                        if (item._url) {
-                            fetchFileContent(item._path, item._url, item._sha);
-                        } else {
-                            currentFileSha = ""; 
-                            const statusEl = document.getElementById('fileStatus');
-                            statusEl.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-yellow-500"></span> <span class="text-yellow-400 font-bold truncate">${key} (New File)</span>`;
-                            editor.setValue(item._localContent || `// Created file: ${key}\n`);
-                            saveFileBtn.classList.remove('hidden');
-                        }
-                        if (window.innerWidth < 768) closeSidebar();
-                    });
-                } else {
-                    itemEl.className = 'text-xs';
-                    const folderHeader = document.createElement('div');
-                    folderHeader.className = 'flex items-center justify-between px-3 py-1.5 hover:bg-gray-850 rounded text-gray-300 font-semibold cursor-pointer transition group';
-                    
-                    const folderTitle = document.createElement('div');
-                    folderTitle.className = 'flex items-center gap-2 truncate';
-                    folderTitle.innerHTML = `<span class="material-symbols-outlined text-yellow-500 !text-[16px] folder-icon">folder</span> <span class="truncate">${key}</span>`;
-                    
-                    const addFileBtn = document.createElement('button');
-                    addFileBtn.className = 'text-gray-500 hover:text-indigo-400 md:opacity-0 group-hover:opacity-100 transition p-1 flex items-center justify-center rounded hover:bg-gray-800';
-                    addFileBtn.innerHTML = `<span class="material-symbols-outlined !text-sm" title="New file in this folder">note_add</span>`;
-                    
-                    const folderContent = document.createElement('div');
-                    folderContent.className = 'folder-content hidden';
-                    
-                    folderTitle.addEventListener('click', () => {
-                        const isHidden = folderContent.classList.toggle('hidden');
-                        folderHeader.querySelector('.folder-icon').textContent = isHidden ? 'folder' : 'folder_open';
-                    });
-
-                    addFileBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const fileName = prompt(`Enter name for the new file inside "${key}":`);
-                        if (!fileName) return;
-
-                        if (!item[fileName]) {
-                            item[fileName] = { _type: 'blob', _path: `${fullPath}/${fileName}`, _localContent: `// New file inside ${key}/\n`, _sha: "" };
-                            folderContent.innerHTML = '';
-                            folderContent.classList.remove('hidden');
-                            folderHeader.querySelector('.folder-icon').textContent = 'folder_open';
-                            buildHtmlTree(item, folderContent, fullPath);
-                        } else {
-                            alert('A file or folder with this name already exists.');
-                        }
-                    });
-
-                    folderHeader.appendChild(folderTitle);
-                    folderHeader.appendChild(addFileBtn);
-                    itemEl.appendChild(folderHeader);
-                    itemEl.appendChild(folderContent);
-                    buildHtmlTree(item, folderContent, fullPath);
-                }
-                container.appendChild(itemEl);
-            });
-        }
-
-        async function fetchFileContent(filePath, blobUrl, sha) {
-            currentFileSha = sha;
-            const statusEl = document.getElementById('fileStatus');
-            statusEl.innerHTML = `<span class="inline-block animate-spin mr-1"><span class="material-symbols-outlined !text-xs">sync</span></span> Loading: ${filePath}...`;
-            saveFileBtn.classList.add('hidden');
-
-            try {
-                const data = await githubFetch(blobUrl);
-                const decodedContent = decodeURIComponent(atob(data.content.replace(/\n/g, '')).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-                
-                const ext = filePath.split('.').pop().toLowerCase();
-                const langMap = { 'js':'javascript', 'ts':'typescript', 'html':'html', 'css':'css', 'json':'json', 'md':'markdown', 'py':'python', 'sh':'shell', 'rs':'rust', 'go':'go', 'cpp':'cpp', 'c':'c', 'yml':'yaml', 'yaml':'yaml' };
-                
-                statusEl.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span> <span class="text-indigo-400 font-bold truncate">${filePath.split('/').pop()}</span> <span class="text-gray-500 text-[10px] truncate">(${filePath})</span>`;
-                editor.setValue(decodedContent);
-                monaco.editor.setModelLanguage(editor.getModel(), langMap[ext] || 'plaintext');
-                
-                saveFileBtn.classList.remove('hidden');
-            } catch (error) {
-                statusEl.innerHTML = `❌ Error loading file`;
-                alert(`Error: ${error.message}`);
-            }
-        }
-
-        function safeUtoa(str) {
-            return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode('0x' + p1)));
-        }
-
-        saveFileBtn.addEventListener('click', async () => {
-            const token = tokenInput.value.trim();
-            if (!token) {
-                alert("Authentication Required:\nPlease provide a GitHub Token with 'repo' scope at the top to save changes directly to GitHub.");
-                return;
-            }
-
-            const commitMessage = prompt("Enter commit message:", `Update ${currentFilePath.split('/').pop()}`);
-            if (commitMessage === null) return; 
-
-            const originalBtnText = saveFileBtn.innerHTML;
-            saveFileBtn.innerHTML = `<span class="material-symbols-outlined animate-spin !text-xs">sync</span> Saving...`;
-            saveFileBtn.disabled = true;
-
-            try {
-                const url = `https://api.github.com/repos/${currentRepo}/contents/${currentFilePath}`;
-                const payload = {
-                    message: commitMessage || "Updated file via Web Editor",
-                    content: safeUtoa(editor.getValue())
-                };
-                
-                if (currentFileSha) {
-                    payload.sha = currentFileSha;
-                }
-
-                const responseData = await githubFetch(url, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                currentFileSha = responseData.content.sha;
-                alert("Success! Changes committed to GitHub.");
-            } catch (error) {
-                alert(`Commit Failed:\n${error.message}`);
-            } finally {
-                saveFileBtn.innerHTML = originalBtnText;
-                saveFileBtn.disabled = false;
-            }
-        });
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
