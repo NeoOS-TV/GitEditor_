@@ -139,7 +139,10 @@
         let currentRepo = "";
         let currentFilePath = "";
         let currentFileSha = ""; 
-        let savedRepos = JSON.parse(localStorage.getItem('gitEditor_savedRepos') || '[]');
+        
+        // Load bookmarks and convert legacy string items to objects safely
+        let rawSaved = JSON.parse(localStorage.getItem('gitEditor_savedRepos') || '[]');
+        let savedRepos = rawSaved.map(item => typeof item === 'string' ? { path: item, token: '' } : item);
 
         const menuBtn = document.getElementById('menuBtn');
         const closeMenuBtn = document.getElementById('closeMenuBtn');
@@ -147,6 +150,7 @@
         const sidebarOverlay = document.getElementById('sidebarOverlay');
         const savedReposList = document.getElementById('savedReposList');
         const repoInput = document.getElementById('repoInput');
+        const tokenInput = document.getElementById('tokenInput');
         const saveFileBtn = document.getElementById('saveFileBtn');
 
         function openSidebar() {
@@ -168,15 +172,18 @@
                 return;
             }
 
-            savedRepos.forEach(repo => {
+            savedRepos.forEach(item => {
                 const el = document.createElement('div');
                 el.className = 'flex items-center justify-between px-2 py-1 hover:bg-gray-800 rounded group transition';
                 
                 const repoLink = document.createElement('span');
                 repoLink.className = 'text-xs text-indigo-300 cursor-pointer truncate flex-1 hover:text-indigo-200 flex items-center gap-1.5';
-                repoLink.innerHTML = `<span class="material-symbols-outlined text-yellow-500 !text-sm">bookmark</span> <span class="truncate">${repo}</span>`;
+                repoLink.innerHTML = `<span class="material-symbols-outlined text-yellow-500 !text-sm">bookmark</span> <span class="truncate">${item.path}</span>`;
+                
+                // Clicking loads repo AND fills the coupled token
                 repoLink.onclick = () => {
-                    repoInput.value = repo;
+                    repoInput.value = item.path;
+                    tokenInput.value = item.token || ''; 
                     fetchRepoStructure();
                 };
 
@@ -185,7 +192,7 @@
                 deleteBtn.innerHTML = '<span class="material-symbols-outlined !text-sm">close</span>';
                 deleteBtn.onclick = (e) => {
                     e.stopPropagation();
-                    savedRepos = savedRepos.filter(r => r !== repo);
+                    savedRepos = savedRepos.filter(r => r.path !== item.path);
                     localStorage.setItem('gitEditor_savedRepos', JSON.stringify(savedRepos));
                     renderSavedRepos();
                 };
@@ -196,15 +203,25 @@
             });
         }
 
+        // Bookmark listener saves both the Repo string and Token string linked together
         document.getElementById('saveRepoBtn').addEventListener('click', () => {
             const repo = repoInput.value.trim();
+            const token = tokenInput.value.trim();
+            
             if (!repo || !repo.includes('/')) return alert('Please enter a valid repo (username/repo).');
-            if (!savedRepos.includes(repo)) {
-                savedRepos.push(repo);
-                localStorage.setItem('gitEditor_savedRepos', JSON.stringify(savedRepos));
-                renderSavedRepos();
-                openSidebar();
+            
+            const existingIndex = savedRepos.findIndex(r => r.path === repo);
+            if (existingIndex > -1) {
+                // If it already exists, update the token associated with it
+                savedRepos[existingIndex].token = token;
+            } else {
+                // Otherwise push a new relational object
+                savedRepos.push({ path: repo, token: token });
             }
+            
+            localStorage.setItem('gitEditor_savedRepos', JSON.stringify(savedRepos));
+            renderSavedRepos();
+            openSidebar();
         });
 
         renderSavedRepos();
@@ -230,7 +247,7 @@
         repoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchRepoStructure(); });
 
         async function githubFetch(url, options = {}) {
-            const token = document.getElementById('tokenInput').value.trim();
+            const token = tokenInput.value.trim();
             options.headers = options.headers || {};
             if (token) options.headers['Authorization'] = `token ${token}`;
             
@@ -383,7 +400,7 @@
         }
 
         saveFileBtn.addEventListener('click', async () => {
-            const token = document.getElementById('tokenInput').value.trim();
+            const token = tokenInput.value.trim();
             if (!token) {
                 alert("Authentication Required:\nPlease provide a GitHub Token with 'repo' scope at the top to save changes directly to GitHub.");
                 return;
