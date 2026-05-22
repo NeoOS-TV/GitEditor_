@@ -4,11 +4,11 @@ let currentFilePath = "";
 let currentFileSha = ""; 
 let isForcedDesktop = false;
 
-// Load bookmarks and convert legacy data safely
+// Bookmarks laden und konvertieren
 let rawSaved = JSON.parse(localStorage.getItem('gitEditor_savedRepos') || '[]');
 let savedRepos = rawSaved.map(item => typeof item === 'string' ? { path: item, token: '' } : item);
 
-// Elements Configuration
+// Elemente deklarieren
 const menuBtn = document.getElementById('menuBtn');
 const closeMenuBtn = document.getElementById('closeMenuBtn');
 const sidebar = document.getElementById('sidebar');
@@ -21,15 +21,15 @@ const viewModeToggle = document.getElementById('viewModeToggle');
 const viewModeIcon = document.getElementById('viewModeIcon');
 const viewModeText = document.getElementById('viewModeText');
 
-// --- Adaptive View Layout Processing (User Agent + Viewport Check) ---
+// --- Responsive Modus-Erkennung ---
 function initDeviceResponsiveness() {
     const isMobileUserAgent = /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
     const isSmallScreen = window.innerWidth < 1024;
 
     if (isMobileUserAgent || isSmallScreen) {
-        applyViewMode(false); // Mobile Mode
+        applyViewMode(false); // Starte im Mobile-Modus
     } else {
-        applyViewMode(true);  // Desktop Mode
+        applyViewMode(true);  // Starte im Desktop-Modus
     }
 }
 
@@ -40,22 +40,23 @@ function applyViewMode(forceDesktop) {
         document.body.classList.add('desktop-view');
         viewModeIcon.textContent = 'desktop_windows';
         viewModeText.textContent = 'Desktop Mode';
-        closeSidebar();
+        closeSidebar(); // Overlay schließen, falls offen
     } else {
         document.body.classList.remove('desktop-view');
         document.body.classList.add('adaptive-view');
         viewModeIcon.textContent = 'smartphone';
         viewModeText.textContent = 'Mobile Mode';
     }
-    if (editor) setTimeout(() => editor.layout(), 100);
+    // Monaco Editor an die neue Breite anpassen
+    if (editor) setTimeout(() => editor.layout(), 150);
 }
 
-// Global UI Mode Toggler listener
+// Event-Listener für den Modus-Umschalter oben rechts
 viewModeToggle.addEventListener('click', () => {
     applyViewMode(!isForcedDesktop);
 });
 
-// Sidebar Mechanics
+// Sidebar Funktionen (nur für Mobile/Adaptive View relevant)
 function openSidebar() {
     if (isForcedDesktop) return;
     sidebar.classList.remove('-translate-x-full');
@@ -71,26 +72,23 @@ menuBtn.addEventListener('click', openSidebar);
 closeMenuBtn.addEventListener('click', closeSidebar);
 sidebarOverlay.addEventListener('click', closeSidebar);
 
-// Handle window resizing safely
 window.addEventListener('resize', () => {
-    if (!isForcedDesktop) {
-        if (window.innerWidth >= 1024) {
-            closeSidebar();
-        }
+    if (!isForcedDesktop && window.innerWidth >= 1024) {
+        closeSidebar();
     }
 });
 
-// Bookmarks Processing Engine (with UNLIKE / DELETE Button)
+// --- Repository Lesezeichen / Bookmark-Liste (inkl. UNLIKE / DELETE) ---
 function renderSavedRepos() {
     savedReposList.innerHTML = '';
     if (savedRepos.length === 0) {
-        savedReposList.innerHTML = '<p class="text-gray-600 text-xs italic px-2">No bookmarks saved.</p>';
+        savedReposList.innerHTML = '<p class="text-gray-650 text-xs italic px-2 py-1">Keine Favoriten gespeichert.</p>';
         return;
     }
 
     savedRepos.forEach(item => {
         const el = document.createElement('div');
-        el.className = 'flex items-center justify-between px-2 py-1 hover:bg-gray-800 rounded group transition';
+        el.className = 'flex items-center justify-between px-2 py-1 hover:bg-gray-800 rounded group transition gap-2';
         
         const repoLink = document.createElement('span');
         repoLink.className = 'text-xs text-indigo-300 cursor-pointer truncate flex-1 hover:text-indigo-200 flex items-center gap-1.5';
@@ -102,16 +100,17 @@ function renderSavedRepos() {
             fetchRepoStructure();
         };
 
-        // UNLIKE BUTTON (Mülleimer-Icon)
+        // DER UNLIKE / LÖSCHEN-BUTTON (Mülleimer-Icon - permanent sichtbar)
         const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'text-gray-500 hover:text-red-400 opacity-100 lg:opacity-0 group-hover:opacity-100 transition px-2 py-0.5 flex items-center justify-center cursor-pointer rounded hover:bg-gray-700/50';
+        deleteBtn.className = 'text-gray-500 hover:text-red-400 opacity-100 p-1 flex items-center justify-center cursor-pointer rounded hover:bg-gray-700 transition shrink-0';
         deleteBtn.innerHTML = '<span class="material-symbols-outlined !text-[16px]">delete</span>';
-        deleteBtn.title = "Unlike / Remove repository";
+        deleteBtn.title = "Repository entfernen (Unlike)";
+        
         deleteBtn.onclick = (e) => {
-            e.stopPropagation();
+            e.stopPropagation(); // Verhindert, dass das Repo beim Löschen geladen wird
             savedRepos = savedRepos.filter(r => r.path !== item.path);
             localStorage.setItem('gitEditor_savedRepos', JSON.stringify(savedRepos));
-            renderSavedRepos();
+            renderSavedRepos(); // Liste neu zeichnen
         };
 
         el.appendChild(repoLink);
@@ -120,11 +119,12 @@ function renderSavedRepos() {
     });
 }
 
+// Repo zu Favoriten hinzufügen (Stern-Button)
 document.getElementById('saveRepoBtn').addEventListener('click', () => {
     const repo = repoInput.value.trim();
     const token = tokenInput.value.trim();
     
-    if (!repo || !repo.includes('/')) return alert('Please enter a valid repo (username/repo).');
+    if (!repo || !repo.includes('/')) return alert('Bitte ein gültiges Repo angeben (user/repo).');
     
     const existingIndex = savedRepos.findIndex(r => r.path === repo);
     if (existingIndex > -1) {
@@ -135,14 +135,13 @@ document.getElementById('saveRepoBtn').addEventListener('click', () => {
     
     localStorage.setItem('gitEditor_savedRepos', JSON.stringify(savedRepos));
     renderSavedRepos();
-    if (!isForcedDesktop && window.innerWidth < 1024) openSidebar();
 });
 
-// Monaco Editor Initialization
+// Monaco Editor laden
 require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' }});
 require(['vs/editor/editor.main'], function() {
     editor = monaco.editor.create(document.getElementById('editorContainer'), {
-        value: "// Auto-save is completely disabled.\n// Changes stay inside your browser memory until you manual save.\n",
+        value: "// GitEditor initialisiert.\n// Lade ein Repository, um Dateien zu bearbeiten.\n",
         language: 'javascript',
         theme: 'vs-dark',
         automaticLayout: true,
@@ -154,13 +153,14 @@ require(['vs/editor/editor.main'], function() {
         renderLineHighlight: 'all',
         cursorBlinking: 'smooth'
     });
+    // Erst nach Editor-Initialisierung das Layout berechnen
     initDeviceResponsiveness();
 });
 
 document.getElementById('loadBtn').addEventListener('click', fetchRepoStructure);
 repoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchRepoStructure(); });
 
-// Core GitHub Communication Layer
+// GitHub API Abrufe
 async function githubFetch(url, options = {}) {
     const token = tokenInput.value.trim();
     options.headers = options.headers || {};
@@ -169,7 +169,7 @@ async function githubFetch(url, options = {}) {
     const response = await fetch(url, options);
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || `Request failed with status ${response.status}`);
+        throw new Error(errData.message || `Fehler: ${response.status}`);
     }
     return response.json();
 }
@@ -179,10 +179,10 @@ async function fetchRepoStructure() {
     const treeContainer = document.getElementById('fileTree');
     const badge = document.getElementById('repoNameBadge');
     
-    if (!repoPath || !repoPath.includes('/')) return alert('Please use "username/repository" format.');
+    if (!repoPath || !repoPath.includes('/')) return alert('Format: "Nutzername/Repository"');
     
     currentRepo = repoPath;
-    treeContainer.innerHTML = '<div class="text-center pt-8"><span class="inline-block animate-spin text-indigo-400"><span class="material-symbols-outlined">sync</span></span><p class="text-indigo-400 text-xs mt-2">Loading tree...</p></div>';
+    treeContainer.innerHTML = '<div class="text-center pt-8"><span class="inline-block animate-spin text-indigo-400"><span class="material-symbols-outlined">sync</span></span><p class="text-indigo-400 text-xs mt-2">Lade Dateibaum...</p></div>';
     badge.textContent = repoPath.split('/')[1];
     
     if (!isForcedDesktop && window.innerWidth < 1024) openSidebar();
@@ -234,8 +234,8 @@ function buildHtmlTree(node, container, currentPath = "") {
                 } else {
                     currentFileSha = ""; 
                     const statusEl = document.getElementById('fileStatus');
-                    statusEl.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-yellow-500"></span> <span class="text-yellow-400 font-bold truncate">${key} (New File)</span>`;
-                    editor.setValue(item._localContent || `// Created file: ${key}\n`);
+                    statusEl.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-yellow-500"></span> <span class="text-yellow-400 font-bold truncate">${key} (Neue Datei)</span>`;
+                    editor.setValue(item._localContent || `// Neue Datei: ${key}\n`);
                     saveFileBtn.classList.remove('hidden');
                 }
                 if (!isForcedDesktop && window.innerWidth < 1024) closeSidebar();
@@ -250,8 +250,8 @@ function buildHtmlTree(node, container, currentPath = "") {
             folderTitle.innerHTML = `<span class="material-symbols-outlined text-yellow-500 !text-[16px] folder-icon">folder</span> <span class="truncate">${key}</span>`;
             
             const addFileBtn = document.createElement('button');
-            addFileBtn.className = 'text-gray-500 hover:text-indigo-400 lg:opacity-0 group-hover:opacity-100 transition p-1 flex items-center justify-center rounded hover:bg-gray-800 cursor-pointer';
-            addFileBtn.innerHTML = `<span class="material-symbols-outlined !text-sm" title="New file in this folder">note_add</span>`;
+            addFileBtn.className = 'text-gray-500 hover:text-indigo-400 opacity-100 lg:opacity-0 group-hover:opacity-100 transition p-1 flex items-center justify-center rounded hover:bg-gray-800 cursor-pointer';
+            addFileBtn.innerHTML = `<span class="material-symbols-outlined !text-sm" title="Neue Datei in diesem Ordner">note_add</span>`;
             
             const folderContent = document.createElement('div');
             folderContent.className = 'folder-content hidden';
@@ -263,17 +263,17 @@ function buildHtmlTree(node, container, currentPath = "") {
 
             addFileBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const fileName = prompt(`Enter name for the new file inside "${key}":`);
+                const fileName = prompt(`Name der neuen Datei in "${key}":`);
                 if (!fileName) return;
 
                 if (!item[fileName]) {
-                    item[fileName] = { _type: 'blob', _path: `${fullPath}/${fileName}`, _localContent: `// New file inside ${key}/\n`, _sha: "" };
+                    item[fileName] = { _type: 'blob', _path: `${fullPath}/${fileName}`, _localContent: `// Datei in ${key}/\n`, _sha: "" };
                     folderContent.innerHTML = '';
                     folderContent.classList.remove('hidden');
                     folderHeader.querySelector('.folder-icon').textContent = 'folder_open';
                     buildHtmlTree(item, folderContent, fullPath);
                 } else {
-                    alert('A file or folder with this name already exists.');
+                    alert('Eine Datei mit diesem Namen existiert bereits.');
                 }
             });
 
@@ -290,7 +290,7 @@ function buildHtmlTree(node, container, currentPath = "") {
 async function fetchFileContent(filePath, blobUrl, sha) {
     currentFileSha = sha;
     const statusEl = document.getElementById('fileStatus');
-    statusEl.innerHTML = `<span class="inline-block animate-spin mr-1"><span class="material-symbols-outlined !text-xs">sync</span></span> Loading: ${filePath}...`;
+    statusEl.innerHTML = `<span class="inline-block animate-spin mr-1"><span class="material-symbols-outlined !text-xs">sync</span></span> Lade: ${filePath}...`;
     saveFileBtn.classList.add('hidden');
 
     try {
@@ -300,14 +300,14 @@ async function fetchFileContent(filePath, blobUrl, sha) {
         const ext = filePath.split('.').pop().toLowerCase();
         const langMap = { 'js':'javascript', 'ts':'typescript', 'html':'html', 'css':'css', 'json':'json', 'md':'markdown', 'py':'python', 'sh':'shell', 'rs':'rust', 'go':'go', 'cpp':'cpp', 'c':'c', 'yml':'yaml', 'yaml':'yaml' };
         
-        statusEl.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span> <span class="text-indigo-400 font-bold truncate">${filePath.split('/').pop()}</span> <span class="text-gray-500 text-[10px] truncate">(${filePath})</span>`;
+        statusEl.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span> <span class="text-indigo-400 font-bold truncate">${filePath.split('/').pop()}</span>`;
         editor.setValue(decodedContent);
         monaco.editor.setModelLanguage(editor.getModel(), langMap[ext] || 'plaintext');
         
         saveFileBtn.classList.remove('hidden');
     } catch (error) {
-        statusEl.innerHTML = `❌ Error loading file`;
-        alert(`Error: ${error.message}`);
+        statusEl.innerHTML = `❌ Fehler beim Laden`;
+        alert(`Fehler: ${error.message}`);
     }
 }
 
@@ -318,15 +318,15 @@ function safeUtoa(str) {
 saveFileBtn.addEventListener('click', async () => {
     const token = tokenInput.value.trim();
     if (!token) {
-        alert("Authentication Required:\nPlease provide a GitHub Token with 'repo' scope at the top to save changes directly to GitHub.");
+        alert("Token benötigt, um Änderungen direkt auf GitHub zu sichern.");
         return;
     }
 
-    const commitMessage = prompt("Enter commit message:", `Update ${currentFilePath.split('/').pop()}`);
+    const commitMessage = prompt("Commit-Nachricht eingeben:", `Update ${currentFilePath.split('/').pop()}`);
     if (commitMessage === null) return; 
 
     const originalBtnText = saveFileBtn.innerHTML;
-    saveFileBtn.innerHTML = `<span class="material-symbols-outlined animate-spin !text-xs">sync</span> Saving...`;
+    saveFileBtn.innerHTML = `<span class="material-symbols-outlined animate-spin !text-xs">sync</span> Speichere...`;
     saveFileBtn.disabled = true;
 
     try {
@@ -347,13 +347,14 @@ saveFileBtn.addEventListener('click', async () => {
         });
 
         currentFileSha = responseData.content.sha;
-        alert("Success! Changes committed to GitHub.");
+        alert("Erfolgreich committet!");
     } catch (error) {
-        alert(`Commit Failed:\n${error.message}`);
+        alert(`Commit fehlgeschlagen:\n${error.message}`);
     } finally {
         saveFileBtn.innerHTML = originalBtnText;
         saveFileBtn.disabled = false;
     }
 });
 
+// Initiale Liste rendern
 renderSavedRepos();
