@@ -26,12 +26,13 @@
 
 /* --- RESPONSIVE MODES (Controlled via state-classes on body) --- */
 
-/* 1. Desktop Layout Overrides: Forces permanent sidebar split layout */
+/* 1. Desktop Layout Overrides: Forces permanent visible sidebar split layout */
 body.desktop-view #sidebar {
     position: static !important;
-    transform: none !important;
+    transform: translateX(0) !important;
     transition: none !important;
     flex-shrink: 0;
+    display: flex !important;
 }
 
 body.desktop-view #menuBtn,
@@ -45,9 +46,10 @@ body.desktop-view #sidebarOverlay {
 @media (min-width: 1024px) {
     body.adaptive-view #sidebar {
         position: static !important;
-        transform: none !important;
+        transform: translateX(0) !important;
         transition: none !important;
         flex-shrink: 0;
+        display: flex !important;
     }
     body.adaptive-view #menuBtn,
     body.adaptive-view #closeMenuBtn,
