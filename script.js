@@ -23,14 +23,13 @@ const viewModeText = document.getElementById('viewModeText');
 
 // --- Adaptive View Layout Processing (User Agent + Viewport Check) ---
 function initDeviceResponsiveness() {
-    // Check user agent string for mobile signatures
     const isMobileUserAgent = /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
     const isSmallScreen = window.innerWidth < 1024;
 
     if (isMobileUserAgent || isSmallScreen) {
-        applyViewMode(false); // Default to Mobile view parameters
+        applyViewMode(false); // Mobile Mode
     } else {
-        applyViewMode(true);  // Default to Desktop view parameters
+        applyViewMode(true);  // Desktop Mode
     }
 }
 
@@ -48,7 +47,6 @@ function applyViewMode(forceDesktop) {
         viewModeIcon.textContent = 'smartphone';
         viewModeText.textContent = 'Mobile Mode';
     }
-    // Trigger Monaco Editor layouts refresh to adapt bounding rectangles safely
     if (editor) setTimeout(() => editor.layout(), 100);
 }
 
@@ -82,7 +80,7 @@ window.addEventListener('resize', () => {
     }
 });
 
-// Bookmarks Processing Engine
+// Bookmarks Processing Engine (with UNLIKE / DELETE Button)
 function renderSavedRepos() {
     savedReposList.innerHTML = '';
     if (savedRepos.length === 0) {
@@ -104,9 +102,11 @@ function renderSavedRepos() {
             fetchRepoStructure();
         };
 
+        // UNLIKE BUTTON (Mülleimer-Icon)
         const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition px-2 flex items-center justify-center cursor-pointer';
-        deleteBtn.innerHTML = '<span class="material-symbols-outlined !text-sm">close</span>';
+        deleteBtn.className = 'text-gray-500 hover:text-red-400 opacity-100 lg:opacity-0 group-hover:opacity-100 transition px-2 py-0.5 flex items-center justify-center cursor-pointer rounded hover:bg-gray-700/50';
+        deleteBtn.innerHTML = '<span class="material-symbols-outlined !text-[16px]">delete</span>';
+        deleteBtn.title = "Unlike / Remove repository";
         deleteBtn.onclick = (e) => {
             e.stopPropagation();
             savedRepos = savedRepos.filter(r => r.path !== item.path);
@@ -154,7 +154,6 @@ require(['vs/editor/editor.main'], function() {
         renderLineHighlight: 'all',
         cursorBlinking: 'smooth'
     });
-    // Fire checking mechanics after editor successfully initialized
     initDeviceResponsiveness();
 });
 
@@ -316,7 +315,6 @@ function safeUtoa(str) {
     return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode('0x' + p1)));
 }
 
-// Save Action Listener
 saveFileBtn.addEventListener('click', async () => {
     const token = tokenInput.value.trim();
     if (!token) {
@@ -358,5 +356,4 @@ saveFileBtn.addEventListener('click', async () => {
     }
 });
 
-// Run bookmarks generation initially
 renderSavedRepos();
